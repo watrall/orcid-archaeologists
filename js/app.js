@@ -86,96 +86,68 @@ var OrcidArchaeologistsIndex = {
         }
     },
     
-    // Fetch researchers (using mock data for preview)
+     // Fetch researchers using DigitalOcean Functions
     fetchResearchers: function() {
-        // For this preview, we'll use mock data since direct API calls are blocked by CORS
-        // In a real implementation, you would use the ORCID API
-        
-        // Simulate API delay
         var self = this;
-        setTimeout(function() {
-            self.researchers = [
-                {
-                    orcid: "0000-0001-2345-6789",
-                    name: "Dr. Eleanor Martinez",
-                    location: "Oxford, United Kingdom",
-                    employment: "University of Oxford",
-                    keywords: ["Bronze Age", "ceramic analysis", "Mediterranean", "fieldwork"],
-                    orcidUrl: "https://orcid.org/0000-0001-2345-6789",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0002-3456-7890",
-                    name: "Prof. James Wilson",
-                    location: "Cairo, Egypt",
-                    employment: "American University in Cairo",
-                    keywords: ["Egyptology", "hieroglyphs", "excavation", "conservation"],
-                    orcidUrl: "https://orcid.org/0000-0002-3456-7890",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0003-4567-8901",
-                    name: "Dr. Sarah Chen",
-                    location: "Beijing, China",
-                    employment: "Peking University",
-                    keywords: ["Neolithic", "pottery", "East Asia", "remote sensing"],
-                    orcidUrl: "https://orcid.org/0000-0003-4567-8901",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0004-5678-9012",
-                    name: "Dr. Michael O'Connor",
-                    location: "Sydney, Australia",
-                    employment: "University of Sydney",
-                    keywords: ["indigenous studies", "rock art", "Australia", "heritage management"],
-                    orcidUrl: "https://orcid.org/0000-0004-5678-9012",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0005-6789-0123",
-                    name: "Prof. Anna Petrova",
-                    location: "Moscow, Russia",
-                    employment: "Lomonosov Moscow State University",
-                    keywords: ["Scythian culture", "burial mounds", "metalwork", "steppe regions"],
-                    orcidUrl: "https://orcid.org/0000-0005-6789-0123",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0006-7890-1234",
-                    name: "Dr. Carlos Mendez",
-                    location: "Mexico City, Mexico",
-                    employment: "National Autonomous University of Mexico",
-                    keywords: ["Maya civilization", "epigraphy", "Mesoamerica", "architectural analysis"],
-                    orcidUrl: "https://orcid.org/0000-0006-7890-1234",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0007-8901-2345",
-                    name: "Dr. Fatima Al-Fihri",
-                    location: "Fez, Morocco",
-                    employment: "University of al-Qarawiyyin",
-                    keywords: ["Islamic archaeology", "North Africa", "manuscript studies", "urban development"],
-                    orcidUrl: "https://orcid.org/0000-0007-8901-2345",
-                    isDemo: true
-                },
-                {
-                    orcid: "0000-0008-9012-3456",
-                    name: "Prof. Thomas Reed",
-                    location: "Boston, USA",
-                    employment: "Harvard University",
-                    keywords: ["digital humanities", "GIS", "spatial analysis", "computational archaeology"],
-                    orcidUrl: "https://orcid.org/0000-0008-9012-3456",
-                    isDemo: true
-                }
-            ];
-            
-            // Set cache timestamp to 3 hours ago
-            self.cache.timestamp = new Date().getTime() - (3 * 60 * 60 * 1000);
-            self.saveToCache();
-            self.displayResearchers();
-        }, 1500);
+        
+        // Show loading indicator
+        this.showLoading();
+        
+        // Call your DigitalOcean Function
+        // Replace 'YOUR_FUNCTION_URL_HERE' with your actual function URL
+        fetch('https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                // Process the real ORCID data
+                self.researchers = self.parseOrcidData(data);
+                self.displayResearchers();
+            })
+            .catch(function(error) {
+                console.error('Error fetching researchers:', error);
+                self.displayError();
+            });
     },
     
+    // Parse ORCID API response data
+    parseOrcidData: function(data) {
+        try {
+            var researchers = [];
+            
+            // Check if we have results
+            if (!data || !data.result || data.result.length === 0) {
+                return researchers;
+            }
+            
+            // Process each researcher
+            for (var i = 0; i < data.result.length; i++) {
+                var item = data.result[i];
+                
+                // Extract ORCID identifier
+                var orcidId = item['orcid-identifier'].path;
+                var orcidUrl = item['orcid-identifier'].uri;
+                
+                // Create researcher object with placeholder data
+                // In a real implementation, you would fetch detailed data for each researcher
+                researchers.push({
+                    orcid: orcidId,
+                    name: "Researcher " + (i + 1),
+                    location: "Location not available",
+                    employment: "Affiliation not available",
+                    keywords: ["archaeology"],
+                    orcidUrl: orcidUrl,
+                    isDemo: false
+                });
+            }
+            
+            return researchers;
+        } catch (error) {
+            console.error('Error parsing ORCID data:', error);
+            return [];
+        }
+    },
+   
     // Setup event listeners
     setupEventListeners: function() {
         var searchInput = document.getElementById('searchInput');
