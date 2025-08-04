@@ -296,10 +296,21 @@ var OrcidArchaeologistsIndex = {
         
         // Create keywords HTML with click handlers
         var keywordsHtml = '';
+        var maxKeywords = 5;
         if (researcher.keywords.length > 0) {
-            for (var i = 0; i < researcher.keywords.length; i++) {
-                var keyword = researcher.keywords[i];
-                keywordsHtml += '<span class="keyword-tag" onclick="OrcidArchaeologistsIndex.filterByKeyword(\'' + keyword + '\')">' + keyword + '</span>';
+            var keywordsToShow = researcher.keywords.slice(0, maxKeywords);
+            for (var i = 0; i < keywordsToShow.length; i++) {
+                var keyword = keywordsToShow[i];
+                // Escape keyword for use in a JavaScript string literal within an HTML attribute
+                var keywordForJs = keyword.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                // Escape keyword for display as HTML text content
+                var keywordForHtml = keyword.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                keywordsHtml += '<span class="keyword-tag" onclick="OrcidArchaeologistsIndex.filterByKeyword(\'' + keywordForJs + '\')">' + keywordForHtml + '</span>';
+            }
+
+            if (researcher.keywords.length > maxKeywords) {
+                keywordsHtml += '<a href="' + researcher.orcidUrl + '" target="_blank" class="view-more-tag">view more...</a>';
             }
         } else {
             keywordsHtml = '<span class="keyword-tag">Specialized in archaeology</span>';
