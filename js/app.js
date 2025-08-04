@@ -310,7 +310,7 @@ var OrcidArchaeologistsIndex = {
             }
 
             if (researcher.keywords.length > maxKeywords) {
-                keywordsHtml += '<a href="' + researcher.orcidUrl + '" target="_blank" class="view-more-tag">view more...</a>';
+                keywordsHtml += '<a href="' + researcher.orcidUrl + '" target="_blank" class="view-more-tag">view more</a>';
             }
         } else {
             keywordsHtml = '<span class="keyword-tag">Specialized in archaeology</span>';
