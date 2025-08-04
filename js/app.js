@@ -86,66 +86,30 @@ var OrcidArchaeologistsIndex = {
         }
     },
     
-     // Fetch researchers using DigitalOcean Functions
+    // Fetch researchers using the serverless function
     fetchResearchers: function() {
         var self = this;
-        
-        // Show loading indicator
         this.showLoading();
-        
-        // Call your DigitalOcean Function
-        // Replace 'YOUR_FUNCTION_URL_HERE' with your actual function URL
+
         fetch('https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists')
             .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
                 return response.json();
             })
             .then(function(data) {
-                // Process the real ORCID data
-                self.researchers = self.parseOrcidData(data);
+                // The serverless function now returns clean, processed data.
+                // We can use it directly.
+                self.researchers = data.result || [];
+                self.totalResults = data.totalResults || 0;
                 self.displayResearchers();
+                self.saveToCache(); // Cache the new data
             })
             .catch(function(error) {
                 console.error('Error fetching researchers:', error);
                 self.displayError();
             });
-    },
-    
-    // Parse ORCID API response data
-    parseOrcidData: function(data) {
-        try {
-            var researchers = [];
-            
-            // Check if we have results
-            if (!data || !data.result || data.result.length === 0) {
-                return researchers;
-            }
-            
-            // Process each researcher
-            for (var i = 0; i < data.result.length; i++) {
-                var item = data.result[i];
-                
-                // Extract ORCID identifier
-                var orcidId = item['orcid-identifier'].path;
-                var orcidUrl = item['orcid-identifier'].uri;
-                
-                // Create researcher object with placeholder data
-                // In a real implementation, you would fetch detailed data for each researcher
-                researchers.push({
-                    orcid: orcidId,
-                    name: "Researcher " + (i + 1),
-                    location: "Location not available",
-                    employment: "Affiliation not available",
-                    keywords: ["archaeology"],
-                    orcidUrl: orcidUrl,
-                    isDemo: false
-                });
-            }
-            
-            return researchers;
-        } catch (error) {
-            console.error('Error parsing ORCID data:', error);
-            return [];
-        }
     },
    
     // Setup event listeners
