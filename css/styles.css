@@ -257,6 +257,23 @@ h1 {
     transform: translateY(-1px);
 }
 
+.view-more-tag {
+    background-color: #ff8c42; /* A complementary orange/coral */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.view-more-tag:hover {
+    background-color: #ff701a; /* A slightly darker shade for hover */
+    transform: translateY(-1px);
+    color: white;
+}
+
 button.keyword-tag {
     font-family: inherit;
     border: 1px solid rgba(3, 115, 140, 0.2);
