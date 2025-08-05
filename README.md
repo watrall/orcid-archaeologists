@@ -4,7 +4,7 @@
 
 This web application provides a searchable and paginated index of archaeologists and related researchers who have public profiles on [ORCID](https://orcid.org/). The goal is to create a simple, fast, and user-friendly interface to explore this dataset. The front-end is a static site built with HTML, CSS, and vanilla JavaScript, hosted on GitHub Pages. The back-end is powered by two serverless functions hosted on DigitalOcean that act as a proxy and data processor for the official ORCID Public API.
 
-This project also acted as a test for Google Jules - to see how efficient it was in code reviews and bug fixes (especially in regard to how much hand in the loop exists in its process)
+This project also acted as a test for Google Jules - to see how efficient it was in code reviews and bug fixes (especially in regard to how much human in the loop exists in its process)
 
 ## Features
 
