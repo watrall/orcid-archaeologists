@@ -2,7 +2,7 @@
 
 ## Project Description
 
-This web application provides a searchable and paginated index of archaeologists and related researchers who have public profiles on ORCID. The goal is to create a simple, fast, and user-friendly interface to explore this dataset. The front-end is a static site built with HTML, CSS, and vanilla JavaScript, hosted on GitHub Pages. The back-end is powered by a serverless function that acts as a proxy and data processor for the official ORCID Public API.
+This web application provides a searchable and paginated index of archaeologists and related researchers who have public profiles on ORCID. The goal is to create a simple, fast, and user-friendly interface to explore this dataset. The front-end is a static site built with HTML, CSS, and vanilla JavaScript, hosted on GitHub Pages. The back-end is powered by two serverless functions hosted on DigitalOcean that act as a proxy and data processor for the official ORCID Public API.
 
 ## Features
 
@@ -13,7 +13,7 @@ This web application provides a searchable and paginated index of archaeologists
 *   **Robust Data Extraction:**
     *   **Location:** Intelligently finds the best available location data, falling back from a researcher's primary address to their most recent employment address.
     *   **Keywords:** Automatically parses and separates keywords, even when they are delimited by a variety of characters (commas, dashes, semicolons).
-*   **Limited Keyword Display:** Shows the top 5 keywords for a clean UI, with a "view more..." link that directs to the researcher's full ORCID profile for more details.
+*   **Limited Keyword Display:** Shows the top 5 keywords for a clean UI, with a "view more" link that directs to the researcher's full ORCID profile for more details.
 
 ## Challenges & Compromises
 
