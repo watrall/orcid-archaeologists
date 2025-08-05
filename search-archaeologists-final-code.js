@@ -55,22 +55,27 @@ exports.main = async function (event, context) {
     const accessToken = tokenResponse.data.access_token;
     console.log('Got access token successfully');
 
-    // Search the ORCID API, using a fielded search for relevance and a stable sort for pagination.
+    // To ensure stable pagination, we fetch a large, stable list of ORCID iDs first (up to 1000).
+    // Then, we paginate through this stable list to fetch detailed records.
     const encodedQuery = encodeURIComponent("keyword:" + query);
-    const searchUrl = `https://pub.orcid.org/v3.0/search/?q=${encodedQuery}&start=${start}&rows=${rows}&sort=profile-submission-date asc`;
-    console.log('Searching ORCID at:', searchUrl);
-    const searchResponse = await axios.get(searchUrl, {
+    const initialSearchUrl = `https://pub.orcid.org/v3.0/search/?q=${encodedQuery}&rows=1000`;
+    console.log('Performing initial large search at:', initialSearchUrl);
+
+    const searchResponse = await axios.get(initialSearchUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
       }
     });
-    console.log('ORCID search completed, status:', searchResponse.status);
+    console.log('Initial search completed, status:', searchResponse.status);
 
-    // Fetch detailed records for each search result in parallel
-    const searchResults = searchResponse.data.result || [];
+    const allResults = searchResponse.data.result || [];
+    const totalResults = searchResponse.data['num-found'] || 0;
 
-    const recordPromises = searchResults.map(item => {
+    // Now, paginate from the stable list of results.
+    const resultsForPage = allResults.slice(start, start + rows);
+
+    const recordPromises = resultsForPage.map(item => {
       const orcid = item['orcid-identifier'].path;
       const recordUrl = `https://pub.orcid.org/v3.0/${orcid}/record`;
       return axios.get(recordUrl, {
@@ -145,9 +150,21 @@ function extractResearcherData(data) {
     }
 
     let location = "Location not available";
+    // First, try the primary address field
     if (data.person?.addresses?.address?.[0]?.country?.value) {
       const countryCode = data.person.addresses.address[0].country.value;
       location = getCountryName(countryCode) || countryCode;
+    }
+    // If not found, try to get it from the most recent employment
+    else if (data['activities-summary']?.employments?.['affiliation-group']?.[0]?.summaries?.[0]?.['employment-summary']?.organization?.address) {
+        const orgAddress = data['activities-summary'].employments['affiliation-group'][0].summaries[0]['employment-summary'].organization.address;
+        const city = orgAddress.city;
+        const country = getCountryName(orgAddress.country) || orgAddress.country;
+        if (city && country) {
+            location = `${city}, ${country}`;
+        } else {
+            location = city || country || "Location not available";
+        }
     }
 
     // Always return a record, even if it's incomplete, per user request.

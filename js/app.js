@@ -3,6 +3,7 @@ var OrcidArchaeologistsIndex = {
     researchers: [],
     filteredResearchers: [],
     activeFilter: null,
+    searchTimeout: null,
     currentPage: 1,
     pageSize: 50,
     totalResults: 0,
@@ -30,12 +31,15 @@ var OrcidArchaeologistsIndex = {
     
     
     // Fetch researchers using the serverless function
-    fetchResearchers: function(page) {
+    fetchResearchers: function(page, query) {
         var self = this;
         this.showLoading();
         this.currentPage = page;
 
+        var searchQuery = query || document.getElementById('searchInput').value || 'archaeology';
+
         var url = new URL('https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists');
+        url.searchParams.append('q', searchQuery);
         url.searchParams.append('page', this.currentPage);
         url.searchParams.append('rows', this.pageSize);
 
@@ -67,8 +71,10 @@ var OrcidArchaeologistsIndex = {
         var nextButton = document.getElementById('nextButton');
 
         searchInput.addEventListener('input', function(e) {
-            // For now, filtering is disabled when pagination is active
-            // A more advanced implementation would require server-side searching
+            clearTimeout(self.searchTimeout);
+            self.searchTimeout = setTimeout(function() {
+                self.fetchResearchers(1); // On new search, always go to page 1
+            }, 500); // Debounce search input
         });
         
         clearFilter.addEventListener('click', function() {
