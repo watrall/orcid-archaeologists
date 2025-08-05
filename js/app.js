@@ -3,7 +3,6 @@ var OrcidArchaeologistsIndex = {
     researchers: [],
     filteredResearchers: [],
     activeFilter: null,
-    searchTimeout: null,
     currentPage: 1,
     pageSize: 20,
     totalResults: 0,
@@ -11,10 +10,8 @@ var OrcidArchaeologistsIndex = {
     // Initialize the application
     init: function() {
         this.showLoading();
-        this.loadFromCache();
-        this.fetchResearchers(1);
+        this.fetchResearchers();
         this.setupEventListeners();
-        this.updateCacheInfo();
     },
     
     // Show loading spinner
@@ -32,75 +29,13 @@ var OrcidArchaeologistsIndex = {
             + '</div>';
     },
     
-    // Load data from cache if available and not expired
-    loadFromCache: function() {
-        try {
-            var cachedData = localStorage.getItem('orcid_archaeology_cache');
-            if (cachedData) {
-                var cache = JSON.parse(cachedData);
-                var now = new Date().getTime();
-                
-                // Check if cache is still valid
-                if (cache.timestamp && (now - cache.timestamp) < this.cache.ttl) {
-                    this.researchers = cache.data;
-                    this.displayResearchers();
-                    console.log('Loaded researchers from cache');
-                    return true;
-                } else {
-                    console.log('Cache expired, fetching fresh data');
-                }
-            }
-        } catch (error) {
-            console.error('Error loading from cache:', error);
-        }
-        return false;
-    },
-    
-    // Save data to cache
-    saveToCache: function() {
-        try {
-            var cacheData = {
-                 this.researchers,
-                timestamp: new Date().getTime()
-            };
-            localStorage.setItem('orcid_archaeology_cache', JSON.stringify(cacheData));
-            this.updateCacheInfo();
-        } catch (error) {
-            console.error('Error saving to cache:', error);
-        }
-    },
-    
-    // Update cache information display
-    updateCacheInfo: function() {
-        var cacheInfo = document.getElementById('cacheInfo');
-        if (this.cache.timestamp) {
-            var now = new Date().getTime();
-            var hoursAgo = Math.floor((now - this.cache.timestamp) / (1000 * 60 * 60));
-            cacheInfo.textContent = 'Cached ' + hoursAgo + ' hours ago';
-        } else {
-            cacheInfo.textContent = '';
-        }
-    },
-    
     // Fetch researchers from ORCID Public API
-    fetchResearchers: function(page) {
+    fetchResearchers: function() {
         var self = this;
         this.showLoading();
         
-        // Update current page
-        if (page) {
-            this.currentPage = page;
-        }
-        
-        // Get search query
-        var searchInput = document.getElementById('searchInput');
-        var searchQuery = searchInput ? searchInput.value || 'archaeology' : 'archaeology';
-        
-        // Build URL with pagination parameters
-        var baseUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists';
-        var url = baseUrl + '?q=' + encodeURIComponent(searchQuery) + '&page=' + this.currentPage + '&rows=' + this.pageSize;
-        
-        console.log('Fetching researchers from:', url);
+        // Call your DigitalOcean Function
+        var url = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists';
         
         fetch(url)
             .then(function(response) {
@@ -110,12 +45,9 @@ var OrcidArchaeologistsIndex = {
                 return response.json();
             })
             .then(function(data) {
-                console.log('Received data:', data);
                 self.researchers = data.result || [];
-                self.totalResults = data.totalResults || 0;
+                self.totalResults = data['num-found'] || 0;
                 self.displayResearchers();
-                self.saveToCache();
-                self.updatePagination();
             })
             .catch(function(error) {
                 console.error('Error fetching researchers:', error);
@@ -126,149 +58,59 @@ var OrcidArchaeologistsIndex = {
     // Setup event listeners
     setupEventListeners: function() {
         var searchInput = document.getElementById('searchInput');
-        var clearFilter = document.getElementById('clearFilter');
-        var prevButton = document.getElementById('prevButton');
-        var nextButton = document.getElementById('nextButton');
         var self = this;
         
-        if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                clearTimeout(self.searchTimeout);
-                self.searchTimeout = setTimeout(function() {
-                    self.fetchResearchers(1); // Reset to first page on search
-                }, 300);
-            });
-        }
-        
-        if (clearFilter) {
-            clearFilter.addEventListener('click', function() {
-                if (searchInput) {
-                    searchInput.value = '';
-                }
-                self.fetchResearchers(1);
-            });
-        }
-        
-        if (prevButton) {
-            prevButton.addEventListener('click', function() {
-                if (self.currentPage > 1) {
-                    self.fetchResearchers(self.currentPage - 1);
-                }
-            });
-        }
-        
-        if (nextButton) {
-            nextButton.addEventListener('click', function() {
-                var totalPages = Math.ceil(self.totalResults / self.pageSize);
-                if (self.currentPage < totalPages) {
-                    self.fetchResearchers(self.currentPage + 1);
-                }
-            });
-        }
+        searchInput.addEventListener('input', function(e) {
+            self.filterResearchers(e.target.value.toLowerCase());
+        });
     },
     
-    // Update pagination controls
-    updatePagination: function() {
-        var paginationContainer = document.getElementById('paginationContainer');
-        var pageInfo = document.getElementById('pageInfo');
-        var prevButton = document.getElementById('prevButton');
-        var nextButton = document.getElementById('nextButton');
-        
-        if (!paginationContainer || !pageInfo || !prevButton || !nextButton) {
-            return;
-        }
-        
-        if (this.totalResults > this.pageSize) {
-            paginationContainer.style.display = 'flex';
-            
-            var totalPages = Math.ceil(this.totalResults / this.pageSize);
-            var startRecord = ((this.currentPage - 1) * this.pageSize) + 1;
-            var endRecord = Math.min(this.currentPage * this.pageSize, this.totalResults);
-            
-            pageInfo.textContent = 'Displaying ' + startRecord + ' - ' + endRecord + ' of ' + this.totalResults + ' researchers';
-            
-            // Update button states
-            prevButton.disabled = (this.currentPage <= 1);
-            nextButton.disabled = (this.currentPage >= totalPages);
-        } else {
-            paginationContainer.style.display = 'none';
-        }
-    },
-    
-    // Filter by keyword
-    filterByKeyword: function(keyword) {
-        this.activeFilter = keyword;
-        this.applyFilters();
-    },
-    
-    // Clear active filter
-    clearFilter: function() {
-        this.activeFilter = null;
-        this.applyFilters();
-    },
-    
-    // Apply all filters (search + keyword filter)
-    applyFilters: function() {
-        var searchQuery = document.getElementById('searchInput').value.toLowerCase();
+    // Filter researchers based on search term
+    filterResearchers: function(query) {
         var self = this;
-        
         this.filteredResearchers = [];
         
-        for (var i = 0; i < this.researchers.length; i++) {
-            var researcher = this.researchers[i];
-            
-            // Apply search filter
-            var matchesSearch = !searchQuery || 
-                researcher.name.toLowerCase().indexOf(searchQuery) !== -1 ||
-                researcher.location.toLowerCase().indexOf(searchQuery) !== -1 ||
-                researcher.employment.toLowerCase().indexOf(searchQuery) !== -1 ||
-                (function() {
+        if (!query) {
+            this.filteredResearchers = [].concat(this.researchers);
+        } else {
+            for (var i = 0; i < this.researchers.length; i++) {
+                var researcher = this.researchers[i];
+                
+                // Check if query matches any field
+                var matches = false;
+                
+                // Check name
+                if (researcher.name && researcher.name.toLowerCase().indexOf(query) !== -1) {
+                    matches = true;
+                }
+                
+                // Check location
+                if (researcher.location && researcher.location.toLowerCase().indexOf(query) !== -1) {
+                    matches = true;
+                }
+                
+                // Check employment
+                if (researcher.employment && researcher.employment.toLowerCase().indexOf(query) !== -1) {
+                    matches = true;
+                }
+                
+                // Check keywords
+                if (researcher.keywords) {
                     for (var j = 0; j < researcher.keywords.length; j++) {
-                        if (researcher.keywords[j].toLowerCase().indexOf(searchQuery) !== -1) {
-                            return true;
+                        if (researcher.keywords[j].toLowerCase().indexOf(query) !== -1) {
+                            matches = true;
+                            break;
                         }
                     }
-                    return false;
-                })();
-            
-            // Apply keyword filter
-            var matchesKeyword = !this.activeFilter || 
-                researcher.keywords.indexOf(this.activeFilter) !== -1;
-            
-            if (matchesSearch && matchesKeyword) {
-                this.filteredResearchers.push(researcher);
+                }
+                
+                if (matches) {
+                    this.filteredResearchers.push(researcher);
+                }
             }
         }
         
         this.displayFilteredResults();
-        this.updateActiveFilterDisplay();
-    },
-    
-    // Update active filter display
-    updateActiveFilterDisplay: function() {
-        var activeFilterEl = document.getElementById('activeFilter');
-        var filterKeywordEl = document.getElementById('filterKeyword');
-        
-        if (this.activeFilter && activeFilterEl && filterKeywordEl) {
-            activeFilterEl.style.display = 'block';
-            filterKeywordEl.textContent = this.activeFilter;
-        } else if (activeFilterEl) {
-            activeFilterEl.style.display = 'none';
-        }
-    },
-    
-    // Update the results count display
-    updateResultsCount: function() {
-        var countElement = document.getElementById('resultsCount');
-        if (countElement) {
-            if (this.researchers.length === 0) {
-                countElement.textContent = 'Loading researchers...';
-            } else if (this.filteredResearchers.length === 1) {
-                countElement.textContent = '1 archaeology researcher found';
-            } else {
-                countElement.textContent = this.filteredResearchers.length + ' archaeology researchers found';
-            }
-        }
     },
     
     // Display all researchers
@@ -279,51 +121,41 @@ var OrcidArchaeologistsIndex = {
     
     // Display filtered researchers
     displayFilteredResults: function() {
-        this.updateResultsCount();
-        
+        var self = this;
         var container = document.getElementById('researchersContainer');
-        if (!container) return;
+        var resultsCount = document.getElementById('resultsCount');
+        
+        // Update results count
+        if (this.filteredResearchers.length === 1) {
+            resultsCount.textContent = '1 archaeology researcher found';
+        } else {
+            resultsCount.textContent = this.filteredResearchers.length + ' archaeology researchers found';
+        }
         
         container.innerHTML = '';
         
-        if (this.filteredResearchers.length === 0 && this.researchers.length > 0) {
+        if (this.filteredResearchers.length === 0) {
             container.innerHTML = ''
                 + '<div class="no-results">'
-                + '    <p>No researchers found matching your filters.</p>'
-                + '    <p style="font-size: 13px; margin-top: 10px;">'
-                + '        <a href="#" onclick="OrcidArchaeologistsIndex.clearFilter()" style="color: var(--primary-color); text-decoration: none;">'
-                + '            Clear all filters'
-                + '        </a>'
-                + '    </p>'
+                + '    <p>No researchers found matching your search.</p>'
                 + '</div>';
             return;
         }
         
-        if (this.researchers.length === 0) {
-            container.innerHTML = ''
-                + '<div class="no-results">'
-                + '    <p>No archaeology researchers found in ORCID database.</p>'
-                + '</div>';
-            return;
-        }
-        
-        // Create researcher tiles
-        var self = this;
+        // Create researcher cards
         for (var i = 0; i < this.filteredResearchers.length; i++) {
             var researcher = this.filteredResearchers[i];
-            var tile = self.createResearcherTile(researcher);
-            container.appendChild(tile);
+            var card = this.createResearcherCard(researcher);
+            container.appendChild(card);
         }
         
         // Add subtle staggered fade-in animation
-        var tiles = container.querySelectorAll('.researcher-tile');
-        for (var i = 0; i < tiles.length; i++) {
+        var cards = container.querySelectorAll('.researcher-card');
+        for (var i = 0; i < cards.length; i++) {
             (function(index) {
                 setTimeout(function() {
-                    if (tiles[index]) {
-                        tiles[index].style.opacity = '1';
-                        tiles[index].style.transform = 'translateY(0)';
-                    }
+                    cards[index].style.opacity = '1';
+                    cards[index].style.transform = 'translateY(0)';
                 }, 50 * index);
             })(i);
         }
@@ -332,46 +164,40 @@ var OrcidArchaeologistsIndex = {
     // Display error message
     displayError: function() {
         var container = document.getElementById('researchersContainer');
-        if (!container) return;
+        var resultsCount = document.getElementById('resultsCount');
         
         container.innerHTML = ''
             + '<div class="no-results">'
             + '    <p>Error loading researchers from ORCID. Please try again later.</p>'
-            + '    <p style="font-size: 13px; margin-top: 10px;">Note: ORCID API has rate limits and may be temporarily unavailable.</p>'
             + '</div>';
-        var resultsCount = document.getElementById('resultsCount');
-        if (resultsCount) {
-            resultsCount.textContent = '';
-        }
+        
+        resultsCount.textContent = '';
     },
     
-    // Create a researcher tile element
-    createResearcherTile: function(researcher) {
-        var tile = document.createElement('div');
-        tile.className = 'researcher-tile';
-        tile.style.opacity = '0';
-        tile.style.transform = 'translateY(10px)';
-        tile.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+    // Create a researcher card element
+    createResearcherCard: function(researcher) {
+        var card = document.createElement('div');
+        card.className = 'researcher-card';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(10px)';
+        card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
         
-        // Create keywords HTML with click handlers
+        // Create keywords HTML
         var keywordsHtml = '';
         if (researcher.keywords && researcher.keywords.length > 0) {
             for (var i = 0; i < researcher.keywords.length; i++) {
                 var keyword = researcher.keywords[i];
                 // Escape single quotes for JavaScript
                 var escapedKeyword = keyword.replace(/'/g, "\\'");
-                keywordsHtml += '<span class="keyword-tag" onclick="OrcidArchaeologistsIndex.filterByKeyword(\'' + escapedKeyword + '\')">' + keyword + '</span>';
+                keywordsHtml += '<span class="keyword-tag" onclick="OrcidArchaeologistsIndex.filterResearchers(\'' + escapedKeyword + '\')">' + keyword + '</span>';
             }
         } else {
             keywordsHtml = '<span class="keyword-tag">Specialized in archaeology</span>';
         }
         
-        // Determine if this is a demo record
-        var demoBadge = researcher.isDemo ? '<span class="demo-badge">Demo</span>' : '';
-        
-        tile.innerHTML = ''
-            + '<div class="tile-content">'
-            + '    <h3 class="researcher-name">' + researcher.name + demoBadge + '</h3>'
+        card.innerHTML = ''
+            + '<div class="card-content">'
+            + '    <h3 class="researcher-name">' + (researcher.name || 'Name not available') + '</h3>'
             + '    <div class="researcher-details">'
             + '        <div class="detail-item">'
             + '            <i class="fas fa-map-marker-alt"></i>'
@@ -393,7 +219,7 @@ var OrcidArchaeologistsIndex = {
             + '    View ORCID Profile <i class="fas fa-external-link-alt"></i>'
             + '</a>';
         
-        return tile;
+        return card;
     }
 };
 
