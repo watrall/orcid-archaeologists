@@ -93,6 +93,7 @@ var OrcidArchaeologistsIndex = {
 
     // Fetch and display full details for a set of researchers
     fetchAndDisplayDetails: function (researchers) {
+        console.log('*** ENTERING fetchAndDisplayDetails ***');
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
         
