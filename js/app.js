@@ -96,6 +96,12 @@ var OrcidArchaeologistsIndex = {
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
         
+        // Debug logging
+        console.log('Page:', this.currentPage);
+        console.log('Researchers for this page:', researchers.length);
+        console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
+        console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
+        
         if (orcidIds.length === 0) {
             self.displayResults([]);
             return;
@@ -112,6 +118,10 @@ var OrcidArchaeologistsIndex = {
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Response from serverless function:', data.result ? data.result.length : 'no result', 'researchers');
+            if (data.result && data.result.length > 0) {
+                console.log('First few returned researchers:', data.result.slice(0, 3).map(r => r.name));
+            }
             self.displayResults(data.result || []);
         })
         .catch(error => {
