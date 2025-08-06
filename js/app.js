@@ -61,14 +61,16 @@ var OrcidArchaeologistsIndex = {
     // Display a specific page of results
     displayPage: function (page) {
         var self = this;
+        console.log(`Displaying page: ${page}`);
         this.currentPage = page;
         var container = document.getElementById('researchersContainer');
         container.innerHTML = '';
         this.showLoading('Fetching researcher details...');
-
+        
         var start = (page - 1) * this.pageSize;
         var end = start + this.pageSize;
         var pageResearchers = this.allResearchers.slice(start, end);
+        console.log(`Slicing allResearchers from ${start} to ${end}. Got ${pageResearchers.length} researchers.`);
 
         this.updatePagination();
 
@@ -79,7 +81,7 @@ var OrcidArchaeologistsIndex = {
     fetchAndDisplayDetails: function (researchers) {
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-
+        
         if (orcidIds.length === 0) {
             self.displayResults([]);
             return;
@@ -119,7 +121,7 @@ var OrcidArchaeologistsIndex = {
         });
 
         nextButton.addEventListener('click', function () {
-            var totalPages = Math.ceil(self.totalResults / self.pageSize);
+            var totalPages = Math.ceil(Math.min(self.totalResults, 1000) / self.pageSize);
             if (self.currentPage < totalPages) {
                 self.displayPage(self.currentPage + 1);
             }
