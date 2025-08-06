@@ -1,6 +1,7 @@
 // Main application module for Index of ORCID Archaeologists
 var OrcidArchaeologistsIndex = {
     allResearchers: [],
+    filteredResearchers: [],
     currentPage: 1,
     pageSize: 50,
     totalResults: 0,
@@ -36,7 +37,7 @@ var OrcidArchaeologistsIndex = {
         container.innerHTML = `<div class="loading"><div class="spinner"></div><p style="margin-top: 20px;">${message || 'Loading researchers...'}</p></div>`;
     },
 
-    // Search for researchers
+    // Search for researchers (API call)
     searchResearchers: function (query) {
         var self = this;
         this.showLoading(`Fetching all researchers for "${query}"...`);
@@ -49,8 +50,7 @@ var OrcidArchaeologistsIndex = {
             .then(data => {
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
-                self.currentPage = 1;
-                self.displayPage(1);
+                self.filterResearchers(''); // Initially, show all results
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
@@ -58,11 +58,25 @@ var OrcidArchaeologistsIndex = {
             });
     },
 
+    // Filter researchers (client-side)
+    filterResearchers: function (query) {
+        var self = this;
+        if (!query) {
+            this.filteredResearchers = this.allResearchers;
+        } else {
+            this.filteredResearchers = this.allResearchers.filter(function (researcher) {
+                const name = researcher.name.toLowerCase();
+                const employment = researcher.employment.toLowerCase();
+                return name.includes(query) || employment.includes(query);
+            });
+        }
+        this.currentPage = 1;
+        this.displayPage(1);
+    },
+
     // Display a specific page of results
     displayPage: function (page) {
-        alert('Displaying page: ' + page);
         var self = this;
-        console.log(`Displaying page: ${page}`);
         this.currentPage = page;
         var container = document.getElementById('researchersContainer');
         container.innerHTML = '';
@@ -70,12 +84,10 @@ var OrcidArchaeologistsIndex = {
         
         var start = (page - 1) * this.pageSize;
         var end = start + this.pageSize;
-        var pageResearchers = this.allResearchers.slice(start, end);
-        console.log(`Slicing allResearchers from ${start} to ${end}. Got ${pageResearchers.length} researchers.`);
+        var pageResearchers = this.filteredResearchers.slice(start, end);
 
         this.updatePagination();
 
-        alert('Number of researchers for this page: ' + pageResearchers.length + '\nFirst researcher on this page: ' + (pageResearchers.length > 0 ? pageResearchers[0].name : 'N/A'));
         this.fetchAndDisplayDetails(pageResearchers);
     },
 
@@ -89,17 +101,23 @@ var OrcidArchaeologistsIndex = {
             return;
         }
 
-        var url = `${this.serverlessUrl}?mode=details&orcids=${orcidIds.join(',')}`;
+        var url = `${this.serverlessUrl}?mode=details`;
 
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                self.displayResults(data.result || []);
-            })
-            .catch(error => {
-                console.error('Error fetching researcher details:', error);
-                self.displayError('Failed to fetch researcher details.');
-            });
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ orcids: orcidIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            self.displayResults(data.result || []);
+        })
+        .catch(error => {
+            console.error('Error fetching researcher details:', error);
+            self.displayError('Failed to fetch researcher details.');
+        });
     },
     
     // Setup event listeners
@@ -111,10 +129,8 @@ var OrcidArchaeologistsIndex = {
 
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
-            if (query.length === 0 || query.length > 2) {
-                self.searchResearchers(query || 'archaeology');
-            }
-        }, 500));
+            self.filterResearchers(query);
+        }, 300));
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
@@ -123,7 +139,7 @@ var OrcidArchaeologistsIndex = {
         });
 
         nextButton.addEventListener('click', function () {
-            var totalPages = Math.ceil(Math.min(self.totalResults, 1000) / self.pageSize);
+            var totalPages = Math.ceil(self.filteredResearchers.length / self.pageSize);
             if (self.currentPage < totalPages) {
                 self.displayPage(self.currentPage + 1);
             }
@@ -132,16 +148,11 @@ var OrcidArchaeologistsIndex = {
 
     // Display results
     displayResults: function (researchers) {
-        alert('Displaying results for: ' + researchers.map(r => r.name).join(', '));
         var self = this;
         var container = document.getElementById('researchersContainer');
         var resultsCount = document.getElementById('resultsCount');
 
-        if (this.totalResults === 1) {
-            resultsCount.textContent = '1 researcher found';
-        } else {
-            resultsCount.textContent = this.totalResults.toLocaleString() + ' researchers found';
-        }
+        resultsCount.textContent = `${this.filteredResearchers.length} of ${this.totalResults.toLocaleString()} researchers found`;
         
         container.innerHTML = '';
 
@@ -171,7 +182,7 @@ var OrcidArchaeologistsIndex = {
         var pageInfo = document.getElementById('pageInfo');
         var paginationContainer = document.getElementById('paginationContainer');
 
-        var totalPages = Math.ceil(Math.min(this.totalResults, 1000) / this.pageSize);
+        var totalPages = Math.ceil(this.filteredResearchers.length / this.pageSize);
 
         if (totalPages > 1) {
             paginationContainer.style.display = 'flex';
