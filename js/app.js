@@ -75,6 +75,7 @@ var OrcidArchaeologistsIndex = {
 
         this.updatePagination();
 
+        alert('Number of researchers for this page: ' + pageResearchers.length + '\nFirst researcher on this page: ' + (pageResearchers.length > 0 ? pageResearchers[0].name : 'N/A'));
         this.fetchAndDisplayDetails(pageResearchers);
     },
 
