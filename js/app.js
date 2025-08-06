@@ -132,6 +132,7 @@ var OrcidArchaeologistsIndex = {
 
     // Display results
     displayResults: function (researchers) {
+        alert('Displaying results for: ' + researchers.map(r => r.name).join(', '));
         var self = this;
         var container = document.getElementById('researchersContainer');
         var resultsCount = document.getElementById('resultsCount');
