@@ -109,6 +109,9 @@ var OrcidArchaeologistsIndex = {
 
         var url = `${this.serverlessUrl}?mode=details`;
 
+        console.log('Making POST request to:', url);
+        console.log('POST body:', JSON.stringify({ orcids: orcidIds }));
+
         fetch(url, {
             method: 'POST',
             headers: {
