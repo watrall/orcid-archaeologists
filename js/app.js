@@ -60,6 +60,7 @@ var OrcidArchaeologistsIndex = {
 
     // Display a specific page of results
     displayPage: function (page) {
+        alert('Displaying page: ' + page);
         var self = this;
         console.log(`Displaying page: ${page}`);
         this.currentPage = page;
