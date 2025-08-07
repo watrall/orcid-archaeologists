@@ -2,6 +2,7 @@
 var OrcidArchaeologistsIndex = {
     allResearchers: [],
     filteredResearchers: [],
+    detailsCache: {}, // Cache for storing full researcher details
     currentPage: 1,
     pageSize: 50,
     totalResults: 0,
@@ -40,39 +41,71 @@ var OrcidArchaeologistsIndex = {
     // Search for researchers (API call)
     searchResearchers: function (query) {
         var self = this;
-        this.showLoading(`Fetching researchers matching "${query}"...`);
+        this.showLoading(`Fetching all researchers for "${query}"...`);
         self.currentQuery = query;
+        self.detailsCache = {}; // Clear cache on new search
 
-        // Assume the serverless function can return full details for the search
-        var url = `${this.serverlessUrl}?mode=search&q=${encodeURIComponent(query)}&rows=1000&details=true`;
+        var url = `${this.serverlessUrl}?mode=search&q=${encodeURIComponent(query)}&rows=1000`;
 
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                // The server now returns full details, so we can store them directly
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
-                self.filteredResearchers = self.allResearchers; // No initial client-side filter needed
-                self.currentPage = 1;
-                self.displayPage(1); // Display the first page of the new results
+                self.filterResearchers(''); // Initially, show all results
+
+                // After the initial list is loaded, pre-fetch all details in the background
+                if (self.allResearchers.length > 0) {
+                    self.prefetchAllDetails(self.allResearchers);
+                }
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
-                self.displayError('Failed to fetch researcher list.');
+                self.displayError('Failed to fetch initial researcher list.');
             });
     },
 
-    // Filter results on the client-side
-    clientSideFilter: function (query) {
+    // Pre-fetch all researcher details in the background
+    prefetchAllDetails: function(researchers) {
+        var self = this;
+        var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
+        
+        console.log(`Starting background pre-fetch for ${orcidIds.length} researchers.`);
+
+        var url = `${this.serverlessUrl}?mode=details`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ orcids: orcidIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.result) {
+                data.result.forEach(researcher => {
+                    const orcidId = researcher.orcidUrl.split('/').pop();
+                    self.detailsCache[orcidId] = researcher;
+                });
+                console.log(`Background pre-fetch complete. Cached ${Object.keys(self.detailsCache).length} researcher details.`);
+            }
+        })
+        .catch(error => {
+            console.error('Error pre-fetching researcher details:', error);
+        });
+    },
+
+    // Filter researchers (client-side)
+    filterResearchers: function (query) {
         var self = this;
         if (!query) {
             this.filteredResearchers = this.allResearchers;
         } else {
             this.filteredResearchers = this.allResearchers.filter(function (researcher) {
-                const name = (researcher.name || '').toLowerCase();
-                const employment = (researcher.employment || '').toLowerCase();
-                const keywords = (researcher.keywords || []).join(' ').toLowerCase();
-                return name.includes(query) || employment.includes(query) || keywords.includes(query);
+                const name = researcher.name.toLowerCase();
+                const employment = researcher.employment.toLowerCase();
+                return name.includes(query) || employment.includes(query);
             });
         }
         this.currentPage = 1;
@@ -83,14 +116,82 @@ var OrcidArchaeologistsIndex = {
     displayPage: function (page) {
         var self = this;
         this.currentPage = page;
+        var container = document.getElementById('researchersContainer');
+        container.innerHTML = '';
+        this.showLoading('Fetching researcher details...');
         
         var start = (page - 1) * this.pageSize;
         var end = start + this.pageSize;
         var pageResearchers = this.filteredResearchers.slice(start, end);
 
-        // No need to fetch details anymore, just display the results
-        this.displayResults(pageResearchers);
         this.updatePagination();
+
+        this.fetchAndDisplayDetails(pageResearchers);
+    },
+
+    // Fetch and display full details for a set of researchers, using the cache if possible
+    fetchAndDisplayDetails: function (researchers) {
+        var self = this;
+        var cachedDetails = [];
+        var idsToFetch = [];
+
+        // First, try to get details from the cache
+        researchers.forEach(function(researcher) {
+            const orcidId = researcher.orcidUrl.split('/').pop();
+            if (self.detailsCache[orcidId]) {
+                cachedDetails.push(self.detailsCache[orcidId]);
+            } else {
+                idsToFetch.push(orcidId);
+            }
+        });
+
+        // If all details were in the cache, display them immediately
+        if (idsToFetch.length === 0) {
+            console.log(`Displaying page ${this.currentPage} from cache.`);
+            self.displayResults(cachedDetails);
+            return;
+        }
+
+        // If some details are missing, fetch them from the API
+        console.log(`Page ${this.currentPage}: Fetching ${idsToFetch.length} details from API, ${cachedDetails.length} were cached.`);
+        
+        var url = `${this.serverlessUrl}?mode=details`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ orcids: idsToFetch })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.result) {
+                // Add new details to the cache
+                data.result.forEach(researcher => {
+                    const orcidId = researcher.orcidUrl.split('/').pop();
+                    self.detailsCache[orcidId] = researcher;
+                });
+                // Combine cached and newly fetched results
+                var finalResults = cachedDetails.concat(data.result);
+                // We need to preserve the original order from the `researchers` array
+                finalResults.sort((a, b) => {
+                    const orcidA = a.orcidUrl.split('/').pop();
+                    const orcidB = b.orcidUrl.split('/').pop();
+                    const indexA = researchers.findIndex(r => r.orcidUrl.endsWith(orcidA));
+                    const indexB = researchers.findIndex(r => r.orcidUrl.endsWith(orcidB));
+                    return indexA - indexB;
+                });
+                self.displayResults(finalResults);
+            } else {
+                // If the API call fails, display what we have from the cache
+                self.displayResults(cachedDetails);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching researcher details:', error);
+            self.displayError('Failed to fetch some researcher details. Displaying cached results.');
+            self.displayResults(cachedDetails); // Display what we have
+        });
     },
     
     // Setup event listeners
@@ -100,14 +201,10 @@ var OrcidArchaeologistsIndex = {
         var nextButton = document.getElementById('nextButton');
         var self = this;
 
-        // We are now using the search input to trigger a new search, not just a client-side filter.
-        // The event listener will call searchResearchers.
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
-            // If the query is empty, we could show the default 'archaeology' list,
-            // or clear the results. Let's stick with the default for now.
-            self.searchResearchers(query || 'archaeology');
-        }, 500)); // Increased debounce time for API calls
+            self.filterResearchers(query);
+        }, 300));
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
