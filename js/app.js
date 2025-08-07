@@ -233,9 +233,12 @@ var OrcidArchaeologistsIndex = {
 
         var keywordsHtml = '<span class="keyword-tag">No research interests listed</span>';
         if (researcher.keywords && researcher.keywords.length > 0) {
-            var topKeywords = researcher.keywords.slice(0, 5);
+            // Parse keywords that might be joined with delimiters
+            const parsedKeywords = researcher.keywords.flatMap(k => k.split(/[,;-]\s*/)).map(k => k.trim()).filter(k => k);
+
+            var topKeywords = parsedKeywords.slice(0, 5);
             keywordsHtml = topKeywords.map(k => `<span class="keyword-tag">${k}</span>`).join('');
-            if (researcher.keywords.length > 5) {
+            if (parsedKeywords.length > 5) {
                 keywordsHtml += ` <a href="${researcher.orcidUrl}" target="_blank" class="view-more-keywords">view more...</a>`;
             }
         }
