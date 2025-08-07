@@ -50,28 +50,14 @@ var OrcidArchaeologistsIndex = {
             .then(data => {
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
-                self.filterResearchers(''); // Initially, show all results
+                self.filteredResearchers = self.allResearchers;
+                self.currentPage = 1;
+                self.displayPage(1);
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
                 self.displayError('Failed to fetch initial researcher list.');
             });
-    },
-
-    // Filter researchers (client-side)
-    filterResearchers: function (query) {
-        var self = this;
-        if (!query) {
-            this.filteredResearchers = this.allResearchers;
-        } else {
-            this.filteredResearchers = this.allResearchers.filter(function (researcher) {
-                const name = researcher.name.toLowerCase();
-                const employment = researcher.employment.toLowerCase();
-                return name.includes(query) || employment.includes(query);
-            });
-        }
-        this.currentPage = 1;
-        this.displayPage(1);
     },
 
     // Display a specific page of results
@@ -143,8 +129,8 @@ var OrcidArchaeologistsIndex = {
 
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
-            self.filterResearchers(query);
-        }, 300));
+            self.searchResearchers(query || 'archaeology');
+        }, 500));
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
