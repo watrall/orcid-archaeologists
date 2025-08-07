@@ -40,34 +40,39 @@ var OrcidArchaeologistsIndex = {
     // Search for researchers (API call)
     searchResearchers: function (query) {
         var self = this;
-        this.showLoading(`Fetching all researchers for "${query}"...`);
+        this.showLoading(`Fetching researchers matching "${query}"...`);
         self.currentQuery = query;
 
-        var url = `${this.serverlessUrl}?mode=search&q=${encodeURIComponent(query)}&rows=1000`;
+        // Assume the serverless function can return full details for the search
+        var url = `${this.serverlessUrl}?mode=search&q=${encodeURIComponent(query)}&rows=1000&details=true`;
 
         fetch(url)
             .then(response => response.json())
             .then(data => {
+                // The server now returns full details, so we can store them directly
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
-                self.filterResearchers(''); // Initially, show all results
+                self.filteredResearchers = self.allResearchers; // No initial client-side filter needed
+                self.currentPage = 1;
+                self.displayPage(1); // Display the first page of the new results
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
-                self.displayError('Failed to fetch initial researcher list.');
+                self.displayError('Failed to fetch researcher list.');
             });
     },
 
-    // Filter researchers (client-side)
-    filterResearchers: function (query) {
+    // Filter results on the client-side
+    clientSideFilter: function (query) {
         var self = this;
         if (!query) {
             this.filteredResearchers = this.allResearchers;
         } else {
             this.filteredResearchers = this.allResearchers.filter(function (researcher) {
-                const name = researcher.name.toLowerCase();
-                const employment = researcher.employment.toLowerCase();
-                return name.includes(query) || employment.includes(query);
+                const name = (researcher.name || '').toLowerCase();
+                const employment = (researcher.employment || '').toLowerCase();
+                const keywords = (researcher.keywords || []).join(' ').toLowerCase();
+                return name.includes(query) || employment.includes(query) || keywords.includes(query);
             });
         }
         this.currentPage = 1;
@@ -78,60 +83,14 @@ var OrcidArchaeologistsIndex = {
     displayPage: function (page) {
         var self = this;
         this.currentPage = page;
-        var container = document.getElementById('researchersContainer');
-        container.innerHTML = '';
-        this.showLoading('Fetching researcher details...');
         
         var start = (page - 1) * this.pageSize;
         var end = start + this.pageSize;
         var pageResearchers = this.filteredResearchers.slice(start, end);
 
+        // No need to fetch details anymore, just display the results
+        this.displayResults(pageResearchers);
         this.updatePagination();
-
-        this.fetchAndDisplayDetails(pageResearchers);
-    },
-
-    // Fetch and display full details for a set of researchers
-    fetchAndDisplayDetails: function (researchers) {
-        console.log('*** ENTERING fetchAndDisplayDetails ***');
-        var self = this;
-        var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-        
-        // Debug logging
-        console.log('Page:', this.currentPage);
-        console.log('Researchers for this page:', researchers.length);
-        console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
-        console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
-        
-        if (orcidIds.length === 0) {
-            self.displayResults([]);
-            return;
-        }
-
-        var url = `${this.serverlessUrl}?mode=details`;
-
-        console.log('Making POST request to:', url);
-        console.log('POST body:', JSON.stringify({ orcids: orcidIds }));
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ orcids: orcidIds })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Response from serverless function:', data.result ? data.result.length : 'no result', 'researchers');
-            if (data.result && data.result.length > 0) {
-                console.log('First few returned researchers:', data.result.slice(0, 3).map(r => r.name));
-            }
-            self.displayResults(data.result || []);
-        })
-        .catch(error => {
-            console.error('Error fetching researcher details:', error);
-            self.displayError('Failed to fetch researcher details.');
-        });
     },
     
     // Setup event listeners
@@ -141,10 +100,14 @@ var OrcidArchaeologistsIndex = {
         var nextButton = document.getElementById('nextButton');
         var self = this;
 
+        // We are now using the search input to trigger a new search, not just a client-side filter.
+        // The event listener will call searchResearchers.
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
-            self.filterResearchers(query);
-        }, 300));
+            // If the query is empty, we could show the default 'archaeology' list,
+            // or clear the results. Let's stick with the default for now.
+            self.searchResearchers(query || 'archaeology');
+        }, 500)); // Increased debounce time for API calls
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
