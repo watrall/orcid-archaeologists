@@ -2,8 +2,9 @@
 var OrcidArchaeologistsIndex = {
     allResearchers: [],
     filteredResearchers: [],
+    detailsCache: {}, // Cache for storing full researcher details
     currentPage: 1,
-    pageSize: 50,
+    pageSize: 20,
     totalResults: 0,
     currentQuery: 'archaeology',
     debounceTimer: null,
@@ -42,6 +43,7 @@ var OrcidArchaeologistsIndex = {
         var self = this;
         this.showLoading(`Fetching all researchers for "${query}"...`);
         self.currentQuery = query;
+        self.detailsCache = {}; // Clear cache on new search
 
         var url = `${this.serverlessUrl}?mode=search&q=${encodeURIComponent(query)}&rows=1000`;
 
@@ -51,11 +53,47 @@ var OrcidArchaeologistsIndex = {
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
                 self.filterResearchers(''); // Initially, show all results
+
+                // After the initial list is loaded, pre-fetch all details in the background
+                if (self.allResearchers.length > 0) {
+                    self.prefetchAllDetails(self.allResearchers);
+                }
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
                 self.displayError('Failed to fetch initial researcher list.');
             });
+    },
+
+    // Pre-fetch all researcher details in the background
+    prefetchAllDetails: function(researchers) {
+        var self = this;
+        var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
+
+        console.log(`Starting background pre-fetch for ${orcidIds.length} researchers.`);
+
+        var url = `${this.serverlessUrl}?mode=details`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ orcids: orcidIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.result) {
+                data.result.forEach(researcher => {
+                    const orcidId = researcher.orcidUrl.split('/').pop();
+                    self.detailsCache[orcidId] = researcher;
+                });
+                console.log(`Background pre-fetch complete. Cached ${Object.keys(self.detailsCache).length} researcher details.`);
+            }
+        })
+        .catch(error => {
+            console.error('Error pre-fetching researcher details:', error);
+        });
     },
 
     // Filter researchers (client-side)
@@ -91,46 +129,68 @@ var OrcidArchaeologistsIndex = {
         this.fetchAndDisplayDetails(pageResearchers);
     },
 
-    // Fetch and display full details for a set of researchers
+    // Fetch and display full details for a set of researchers, using the cache if possible
     fetchAndDisplayDetails: function (researchers) {
-        console.log('*** ENTERING fetchAndDisplayDetails ***');
         var self = this;
-        var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-        
-        // Debug logging
-        console.log('Page:', this.currentPage);
-        console.log('Researchers for this page:', researchers.length);
-        console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
-        console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
-        
-        if (orcidIds.length === 0) {
-            self.displayResults([]);
+        var cachedDetails = [];
+        var idsToFetch = [];
+
+        // First, try to get details from the cache
+        researchers.forEach(function(researcher) {
+            const orcidId = researcher.orcidUrl.split('/').pop();
+            if (self.detailsCache[orcidId]) {
+                cachedDetails.push(self.detailsCache[orcidId]);
+            } else {
+                idsToFetch.push(orcidId);
+            }
+        });
+
+        // If all details were in the cache, display them immediately
+        if (idsToFetch.length === 0) {
+            console.log(`Displaying page ${this.currentPage} from cache.`);
+            self.displayResults(cachedDetails);
             return;
         }
 
+        // If some details are missing, fetch them from the API
+        console.log(`Page ${this.currentPage}: Fetching ${idsToFetch.length} details from API, ${cachedDetails.length} were cached.`);
+
         var url = `${this.serverlessUrl}?mode=details`;
-
-        console.log('Making POST request to:', url);
-        console.log('POST body:', JSON.stringify({ orcids: orcidIds }));
-
         fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ orcids: orcidIds })
+            body: JSON.stringify({ orcids: idsToFetch })
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Response from serverless function:', data.result ? data.result.length : 'no result', 'researchers');
-            if (data.result && data.result.length > 0) {
-                console.log('First few returned researchers:', data.result.slice(0, 3).map(r => r.name));
+            if (data.result) {
+                // Add new details to the cache
+                data.result.forEach(researcher => {
+                    const orcidId = researcher.orcidUrl.split('/').pop();
+                    self.detailsCache[orcidId] = researcher;
+                });
+                // Combine cached and newly fetched results
+                var finalResults = cachedDetails.concat(data.result);
+                // We need to preserve the original order from the `researchers` array
+                finalResults.sort((a, b) => {
+                    const orcidA = a.orcidUrl.split('/').pop();
+                    const orcidB = b.orcidUrl.split('/').pop();
+                    const indexA = researchers.findIndex(r => r.orcidUrl.endsWith(orcidA));
+                    const indexB = researchers.findIndex(r => r.orcidUrl.endsWith(orcidB));
+                    return indexA - indexB;
+                });
+                self.displayResults(finalResults);
+            } else {
+                // If the API call fails, display what we have from the cache
+                self.displayResults(cachedDetails);
             }
-            self.displayResults(data.result || []);
         })
         .catch(error => {
             console.error('Error fetching researcher details:', error);
-            self.displayError('Failed to fetch researcher details.');
+            self.displayError('Failed to fetch some researcher details. Displaying cached results.');
+            self.displayResults(cachedDetails); // Display what we have
         });
     },
     
@@ -166,7 +226,14 @@ var OrcidArchaeologistsIndex = {
         var container = document.getElementById('researchersContainer');
         var resultsCount = document.getElementById('resultsCount');
 
-        resultsCount.textContent = `${this.filteredResearchers.length} of ${this.totalResults.toLocaleString()} researchers found`;
+        var startRecord = (this.currentPage - 1) * this.pageSize + 1;
+        var endRecord = startRecord + researchers.length - 1;
+
+        if (researchers.length === 0) {
+            resultsCount.textContent = 'No researchers found matching your search.';
+        } else {
+            resultsCount.textContent = `Displaying records ${startRecord}-${endRecord} of ${this.filteredResearchers.length.toLocaleString()}`;
+        }
         
         container.innerHTML = '';
 
