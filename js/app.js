@@ -96,13 +96,13 @@ var OrcidArchaeologistsIndex = {
         console.log('*** ENTERING fetchAndDisplayDetails ***');
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-
+        
         // Debug logging
         console.log('Page:', this.currentPage);
         console.log('Researchers for this page:', researchers.length);
         console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
         console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
-
+        
         if (orcidIds.length === 0) {
             self.displayResults([]);
             return;
@@ -168,7 +168,7 @@ var OrcidArchaeologistsIndex = {
 
         var startRecord = (this.currentPage - 1) * this.pageSize + 1;
         var endRecord = startRecord + researchers.length - 1;
-
+        
         if (researchers.length === 0) {
             resultsCount.textContent = 'No researchers found matching your search.';
         } else {
@@ -233,9 +233,12 @@ var OrcidArchaeologistsIndex = {
 
         var keywordsHtml = '<span class="keyword-tag">No research interests listed</span>';
         if (researcher.keywords && researcher.keywords.length > 0) {
-            var topKeywords = researcher.keywords.slice(0, 5);
+            // Parse keywords that might be joined with delimiters
+            const parsedKeywords = researcher.keywords.flatMap(k => k.split(/[,;-]\s*/)).map(k => k.trim()).filter(k => k);
+            
+            var topKeywords = parsedKeywords.slice(0, 5);
             keywordsHtml = topKeywords.map(k => `<span class="keyword-tag">${k}</span>`).join('');
-            if (researcher.keywords.length > 5) {
+            if (parsedKeywords.length > 5) {
                 keywordsHtml += ` <a href="${researcher.orcidUrl}" target="_blank" class="view-more-keywords">view more...</a>`;
             }
         }
