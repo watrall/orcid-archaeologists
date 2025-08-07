@@ -8,9 +8,9 @@ This project also acted as a test for Google Jules - to see how efficient it was
 
 ## Features
 
-*   **Dynamic Search:** Search for researchers by keyword. The search is debounced for a smooth user experience and queries the ORCID API in real-time (sort of working)
+*   **Dynamic Search:** Search for researchers by keyword. The search is debounced for a smooth user experience and queries the ORCID API in real-time
 *   **Paginated Results:** Browse through search results page by page. The application displays 50 records per page.
-*   **Stable Pagination Window:** The pagination is stable and reliable for the first 1000 search results, preventing duplicate records from appearing on different pages (sort of working).
+*   **Stable Pagination Window:** The pagination is stable and reliable for the first 1000 search results, preventing duplicate records from appearing on different pages.
 *   **Detailed Researcher Cards:** Each researcher is displayed on a card with their name, affiliation, location, and research interests.
 *   **Robust Data Extraction:**
     *   **Location:** Intelligently finds the best available location data, falling back from a researcher's primary address to their most recent employment address.
