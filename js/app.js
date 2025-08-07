@@ -50,28 +50,14 @@ var OrcidArchaeologistsIndex = {
             .then(data => {
                 self.allResearchers = data.result || [];
                 self.totalResults = data['num-found'] || 0;
-                self.filterResearchers(''); // Initially, show all results
+                self.filteredResearchers = self.allResearchers;
+                self.currentPage = 1;
+                self.displayPage(1);
             })
             .catch(error => {
                 console.error('Error searching researchers:', error);
                 self.displayError('Failed to fetch initial researcher list.');
             });
-    },
-
-    // Filter researchers (client-side)
-    filterResearchers: function (query) {
-        var self = this;
-        if (!query) {
-            this.filteredResearchers = this.allResearchers;
-        } else {
-            this.filteredResearchers = this.allResearchers.filter(function (researcher) {
-                const name = researcher.name.toLowerCase();
-                const employment = researcher.employment.toLowerCase();
-                return name.includes(query) || employment.includes(query);
-            });
-        }
-        this.currentPage = 1;
-        this.displayPage(1);
     },
 
     // Display a specific page of results
@@ -96,13 +82,13 @@ var OrcidArchaeologistsIndex = {
         console.log('*** ENTERING fetchAndDisplayDetails ***');
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-
+        
         // Debug logging
         console.log('Page:', this.currentPage);
         console.log('Researchers for this page:', researchers.length);
         console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
         console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
-
+        
         if (orcidIds.length === 0) {
             self.displayResults([]);
             return;
@@ -143,8 +129,8 @@ var OrcidArchaeologistsIndex = {
 
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
-            self.filterResearchers(query);
-        }, 300));
+            self.searchResearchers(query || 'archaeology');
+        }, 500));
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
@@ -168,7 +154,7 @@ var OrcidArchaeologistsIndex = {
 
         var startRecord = (this.currentPage - 1) * this.pageSize + 1;
         var endRecord = startRecord + researchers.length - 1;
-
+        
         if (researchers.length === 0) {
             resultsCount.textContent = 'No researchers found matching your search.';
         } else {
@@ -235,7 +221,7 @@ var OrcidArchaeologistsIndex = {
         if (researcher.keywords && researcher.keywords.length > 0) {
             // Parse keywords that might be joined with delimiters
             const parsedKeywords = researcher.keywords.flatMap(k => k.split(/[,;-]\s*/)).map(k => k.trim()).filter(k => k);
-
+            
             var topKeywords = parsedKeywords.slice(0, 5);
             keywordsHtml = topKeywords.map(k => `<span class="keyword-tag">${k}</span>`).join('');
             if (parsedKeywords.length > 5) {
