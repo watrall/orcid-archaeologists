@@ -25,3 +25,11 @@ To solve this, a pragmatic compromise was implemented:
 
 *   **The 1000-Record Window:** The back-end function fetches the top 1000 results from the ORCID API in a single, initial query. This list is stable for the duration of the user's search. The application then performs pagination against this stable "window" of 1000 records.
 *   **Trade-Off:** This provides a fast, reliable, and stable user experience for the first 20 pages of results. While this doesn't expose the entire dataset, it covers the vast majority of user sessions while staying within the technical and performance constraints of a serverless architecture. A "perfect" solution would require a much more complex and expensive system involving a dedicated database and a background worker to synchronize all 30,000+ records.
+
+## How to Run
+
+This is a static web application. You can run it locally by:
+
+1.  Cloning the repository.
+2.  Opening `index.html` directly in your web browser.
+3.  Alternatively, you can serve it using a simple HTTP server (e.g., `python3 -m http.server` or `npx serve`).

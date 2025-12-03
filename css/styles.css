@@ -12,6 +12,9 @@
     --shadow: 0 4px 6px rgba(3, 115, 140, 0.1);
     --radius: 8px;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --accent-orange: #ff6b35;
+    --accent-orange-light: #ff8c42;
+    --accent-orange-dark: #ff701a;
 }
 
 * {
@@ -142,10 +145,15 @@ h1 {
     display: flex;
     flex-direction: column;
     height: 100%;
+    opacity: 0;
+    transform: translateY(10px);
+    border: 1px solid var(--border-color);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.researcher-card.visible {
     opacity: 1;
     transform: translateY(0);
-    border: 1px solid var(--border-color);
-    animation: fadeInUp 0.5s ease-out forwards;
 }
 
 .researcher-card.hidden {
@@ -193,7 +201,7 @@ h1 {
 }
 
 .demo-badge {
-    background-color: #ff6b35;
+    background-color: var(--accent-orange);
     color: white;
     font-size: 10px;
     font-weight: 600;
@@ -258,7 +266,8 @@ h1 {
 }
 
 .view-more-tag {
-    background-color: #ff8c42; /* A complementary orange/coral */
+    background-color: var(--accent-orange-light);
+    /* A complementary orange/coral */
     color: white;
     padding: 4px 8px;
     border-radius: 4px;
@@ -269,7 +278,8 @@ h1 {
 }
 
 .view-more-tag:hover {
-    background-color: #ff701a; /* A slightly darker shade for hover */
+    background-color: var(--accent-orange-dark);
+    /* A slightly darker shade for hover */
     transform: translateY(-1px);
     color: white;
 }
@@ -323,7 +333,8 @@ button.keyword-tag:hover {
     animation: rotate 1s linear infinite;
 }
 
-.spinner::before, .spinner::after {
+.spinner::before,
+.spinner::after {
     content: "";
     box-sizing: border-box;
     position: absolute;
@@ -341,16 +352,35 @@ button.keyword-tag:hover {
 }
 
 @keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes clipFix {
-    0% { clip-path: polygon(50% 50%, 0 0, 0 0, 0 0, 0 0, 0 0); }
-    25% { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 0, 100% 0, 100% 0); }
-    50% { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 100% 100%, 100% 100%); }
-    75% { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 100%); }
-    100% { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0); }
+    0% {
+        clip-path: polygon(50% 50%, 0 0, 0 0, 0 0, 0 0, 0 0);
+    }
+
+    25% {
+        clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 0, 100% 0, 100% 0);
+    }
+
+    50% {
+        clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 100% 100%, 100% 100%);
+    }
+
+    75% {
+        clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+    }
+
+    100% {
+        clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0);
+    }
 }
 
 .no-results {
@@ -360,20 +390,7 @@ button.keyword-tag:hover {
     grid-column: 1 / -1;
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.researcher-card {
-    animation: fadeInUp 0.5s ease-out forwards;
-}
+/* Keyframes removed as we use transitions now */
 
 .app-footer {
     text-align: center;
@@ -398,6 +415,7 @@ button.keyword-tag:hover {
 
 .app-footer i {
     color: #ff6b6b;
+    /* Keep as specific red for heart icon or define var if needed, but leaving for now as it wasn't in scope to define ALL colors, just the main ones */
     margin: 0 2px;
 }
 
@@ -438,8 +456,20 @@ button.keyword-tag:hover {
     .researchers-container {
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     }
-    
+
     h1 {
         font-size: 24px;
     }
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
 }

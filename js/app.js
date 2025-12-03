@@ -1,13 +1,20 @@
 // Main application module for Index of ORCID Archaeologists
+var CONFIG = {
+    SERVERLESS_URL: 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists',
+    DEBOUNCE_DELAY: 500,
+    PAGE_SIZE: 20,
+    ANIMATION_STAGGER_MS: 50
+};
+
 var OrcidArchaeologistsIndex = {
     allResearchers: [],
     filteredResearchers: [],
     currentPage: 1,
-    pageSize: 20,
+    pageSize: CONFIG.PAGE_SIZE,
     totalResults: 0,
     currentQuery: 'archaeology',
     debounceTimer: null,
-    serverlessUrl: 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-6a9a946f-8359-46a3-ab53-3db991adfde7/default/search-archaeologists',
+    serverlessUrl: CONFIG.SERVERLESS_URL,
 
     // Initialize the application
     init: function () {
@@ -79,15 +86,8 @@ var OrcidArchaeologistsIndex = {
 
     // Fetch and display full details for a set of researchers
     fetchAndDisplayDetails: function (researchers) {
-        console.log('*** ENTERING fetchAndDisplayDetails ***');
         var self = this;
         var orcidIds = researchers.map(r => r.orcidUrl.split('/').pop());
-
-        // Debug logging
-        console.log('Page:', this.currentPage);
-        console.log('Researchers for this page:', researchers.length);
-        console.log('First few researchers:', researchers.slice(0, 3).map(r => ({name: r.name, orcid: r.orcidUrl})));
-        console.log('ORCID IDs being sent:', orcidIds.slice(0, 10));
 
         if (orcidIds.length === 0) {
             self.displayResults([]);
@@ -95,9 +95,6 @@ var OrcidArchaeologistsIndex = {
         }
 
         var url = `${this.serverlessUrl}?mode=details`;
-
-        console.log('Making POST request to:', url);
-        console.log('POST body:', JSON.stringify({ orcids: orcidIds }));
 
         fetch(url, {
             method: 'POST',
@@ -108,10 +105,6 @@ var OrcidArchaeologistsIndex = {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Response from serverless function:', data.result ? data.result.length : 'no result', 'researchers');
-            if (data.result && data.result.length > 0) {
-                console.log('First few returned researchers:', data.result.slice(0, 3).map(r => r.name));
-            }
             self.displayResults(data.result || []);
         })
         .catch(error => {
@@ -130,7 +123,7 @@ var OrcidArchaeologistsIndex = {
         searchInput.addEventListener('input', this.debounce(function (e) {
             var query = e.target.value.toLowerCase();
             self.searchResearchers(query || 'archaeology');
-        }, 500));
+        }, CONFIG.DEBOUNCE_DELAY));
 
         prevButton.addEventListener('click', function () {
             if (self.currentPage > 1) {
@@ -176,9 +169,8 @@ var OrcidArchaeologistsIndex = {
         var cards = container.querySelectorAll('.researcher-card');
         cards.forEach(function(card, index) {
             setTimeout(function() {
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 50 * index);
+                card.classList.add('visible');
+            }, CONFIG.ANIMATION_STAGGER_MS * index);
         });
     },
 
@@ -213,9 +205,7 @@ var OrcidArchaeologistsIndex = {
     createResearcherCard: function (researcher) {
         var card = document.createElement('div');
         card.className = 'researcher-card';
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(10px)';
-        card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        // Initial state is handled by CSS (opacity: 0, transform: translateY(10px))
 
         var keywordsHtml = '<span class="keyword-tag">No research interests listed</span>';
         if (researcher.keywords && researcher.keywords.length > 0) {
